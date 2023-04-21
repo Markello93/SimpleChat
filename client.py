@@ -16,16 +16,16 @@ def receive_messages():
             data = s.recv(1024)
             if not data:
                 break
-            message = data.decode("utf-8")
+            message = data.decode()
             print(message)
         except ConnectionAbortedError as e:
             print("Сервер прервал соединение")
-            logging.info(f"{e},Сервер прервал соединение")
+            logging.error(f"{e},Сервер прервал соединение")
             s.close()
             break
         except Exception as e:
             print(f"Произошла ошибка: {e}")
-            logging.info(f"Произошла ошибка: {e}")
+            logging.exception(e)
             s.close()
             break
 
@@ -35,15 +35,14 @@ def send_messages():
     while True:
         try:
             message = input()
+            s.send(message.encode())
             if message == "exit":
-                s.send(message.encode("utf-8"))
                 print("Вы вышли из чата")
                 s.shutdown(socket.SHUT_RDWR)
                 s.close()
                 break
-            message_send = f"{message}"
-            s.send(message_send.encode("utf-8"))
         except Exception as e:
+            print(f"Произошла ошибка: {e}")
             logging.exception(e)
             break
 

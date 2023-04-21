@@ -12,7 +12,14 @@ nicknames = set()
 def broadcast(message):
     """Функция отправки сообщений клиента в общий чат"""
     for client in clients:
-        client.sendall(message)
+        try:
+            client.sendall(message)
+        except ConnectionResetError:
+            logging.error(f"Соединение с клиентом {client.getpeername()} было разорвано")
+            break
+        except Exception as e:
+            logging.exception(f"Произошла ошибка при отправке сообщения клиенту {client.getpeername()}: {e}")
+            break
 
 
 def handle_client(conn, addr):
@@ -22,41 +29,41 @@ def handle_client(conn, addr):
 
     while not nickname:
         try:
-            conn.send("Enter nickname: ".encode("utf-8"))
-            nickname = conn.recv(1024).decode("utf-8")
+            conn.send("Enter nickname: ".encode())
+            nickname = conn.recv(1024).decode()
             if nickname in nicknames:
-                conn.send(" Этот никнейм занят, пожалуйста используйте другой: ".encode("utf-8"))
+                conn.send(" Этот никнейм занят, пожалуйста используйте другой: ".encode())
                 nickname = None
             else:
                 nicknames.add(nickname)
         except ConnectionResetError:
-            logging.info(f"Соединение с {addr} прервано до ввода никнейма")
+            logging.error(f"Соединение с {addr} прервано до ввода никнейма")
             conn.close()
             return
 
     clients.add(conn)
-    broadcast(f"{nickname} присоединился к чату".encode("utf-8"))
+    broadcast(f"{nickname} присоединился к чату".encode())
 
     while True:
         try:
-            message = conn.recv(1024).decode("utf-8")
+            message = conn.recv(1024).decode()
             if message == "exit":
                 clients.remove(conn)
                 conn.close()
                 logging.info(f"{nickname} покинул чат.")
                 nicknames.remove(nickname)
-                broadcast(f"{nickname} покинул чат.".encode("utf-8"))
+                broadcast(f"{nickname} покинул чат.".encode())
                 break
             else:
                 logging.info(f"{nickname}: {message}")
-                broadcast(f"{nickname}: {message}".encode("utf-8"))
+                broadcast(f"{nickname}: {message}".encode())
         except Exception as e:
             if conn in clients:
                 clients.remove(conn)
                 conn.close()
-                logging.error(f"Error: {e}")
+                logging.exception(f"Произошла ошибка: {e}")
                 nicknames.remove(nickname)
-                broadcast(f"{nickname} покинул чат.".encode("utf-8"))
+                broadcast(f"{nickname} покинул чат.".encode())
                 break
 
 
@@ -72,7 +79,11 @@ def main():
                 logging.info(f"{addr} присоединился к серверу.")
                 client_thread = threading.Thread(target=handle_client, args=(conn, addr))
                 client_thread.start()
-        finally:
+        except KeyboardInterrupt:
+            logging.exception("Сервер остановлен по требованию пользователя.")
+            s.close()
+        except Exception as e:
+            logging.exception(f"Произошла ошибка: {e}")
             s.close()
 
 
